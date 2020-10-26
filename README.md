@@ -3,7 +3,7 @@
 * *Language*: Go
 * *Description*: A CLI tool to move messages from one AMQ cluster to another
 
-<img src="doc/requeue.png" width="700">
+<img src="requeue.png" width="700">
 
 ## Build
 ```
