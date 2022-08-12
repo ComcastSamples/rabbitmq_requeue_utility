@@ -1,7 +1,7 @@
 # requeue
 
 * *Language*: Go
-* *Description*: A CLI tool to move messages from one AMQ cluster to another
+* *Description*: A CLI tool to move messages from one AMQ queue/cluster to another
 
 <img src="requeue.png" width="700">
 
@@ -41,7 +41,8 @@
 	        -dstPass password \
 	        -dstQueue queue_two \
 	        -dstVhost cluster2-broker \
-                -qArgs 'x-message-ttl:3600000:int,x-ha-policy:all:string'
+                -sArgs 'x-message-ttl:3600000:int,x-ha-policy:ues-ha-all:string' \
+                -dArgs 'x-message-ttl:10800000:int,x-ha-policy:ues-ha-all:string'
 ```
 
 ### License
