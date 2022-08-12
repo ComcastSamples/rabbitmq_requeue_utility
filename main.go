@@ -43,7 +43,8 @@ func main() {
 	dstPass := flag.String("dstPass", "", "Destination Password")
 	srcQueue := flag.String("srcQueue", "", "Source queue to copy messages from")
 	dstQueue := flag.String("dstQueue", "", "Destination queue to copy messages to")
-	qArgs := flag.String("qArgs", "", "Comma separated list of queue args in form of 'key:value:type'. Example: 'x-message-ttl:3600000:int,x-ha-policy:all:string'")
+	sArgs := flag.String("sArgs", "", "Comma separated list of SRC queue args in form of 'key:value:type'. Example: 'x-message-ttl:3600000:int,x-ha-policy:all:string'")
+	dArgs := flag.String("dArgs", "", "Comma separated list of DST queue args in form of 'key:value:type'. Example: 'x-message-ttl:10800000:int,x-ha-policy:all:string'")
 	flag.Parse()
 
 	if *debugOption == true {
@@ -51,10 +52,13 @@ func main() {
 	}
 
 	// Parse Queue Arguments
-	queueArgs := make(map[string]interface{})
+	srcQueueArgs := make(map[string]interface{})
+	dstQueueArgs := make(map[string]interface{})
 
-	if len(*qArgs) > 0 {
-		list := strings.Split(*qArgs, ",")
+	parseArgs := func(inArgs, inType string) map[string]interface{} {
+		tempMap := make(map[string]interface{})
+
+		list := strings.Split(inArgs, ",")
 		for _, arg := range list {
 			args := strings.Split(arg, ":")
 			fName := args[0]
@@ -62,15 +66,20 @@ func main() {
 			vType := args[2]
 			if vType == "int" {
 				i, _ := strconv.Atoi(fValue)
-				queueArgs[fName] = i
+				tempMap[fName] = i
 			} else {
-				queueArgs[fName] = string(fValue)
+				tempMap[fName] = string(fValue)
 			}
 
 			printDebug("Setting queue arguement -->  ", arg)
 		}
-		fmt.Printf("Queue Arguments: %s \n", blue(queueArgs))
+		fmt.Printf("%s Queue Arguments: %s \n", inType, blue(tempMap))
+
+		return tempMap
 	}
+
+	srcQueueArgs = parseArgs(*sArgs, "SRC")
+	dstQueueArgs = parseArgs(*dArgs, "DST")
 
 	// SRC Cluster Connection
 	srcConnString := fmt.Sprintf("amqp://%s:%s@%s:%s/%%2F%s", *srcUser, *srcPass, *srcHost, *srcPort, *srcVhost)
@@ -86,12 +95,12 @@ func main() {
 	failOnError(err, "Could not configure Qos on source cluster")
 
 	srcq, err := srcch.QueueDeclare(
-		*srcQueue, // name
-		true,      // durable
-		false,     // delete when unused
-		false,     // exclusive
-		false,     // no-wait
-		queueArgs, // args
+		*srcQueue,    // name
+		true,         // durable
+		false,        // delete when unused
+		false,        // exclusive
+		false,        // no-wait
+		srcQueueArgs, // args
 	)
 	failOnError(err, "Failed to delcare source queue")
 
@@ -118,12 +127,12 @@ func main() {
 	defer dstch.Close()
 
 	dstq, err := dstch.QueueDeclare(
-		*dstQueue, // name
-		true,      // durable
-		false,     // delete when unused
-		false,     // exclusive
-		false,     // no-wait
-		queueArgs, // args
+		*dstQueue,    // name
+		true,         // durable
+		false,        // delete when unused
+		false,        // exclusive
+		false,        // no-wait
+		dstQueueArgs, // args
 	)
 
 	forever := make(chan bool)
