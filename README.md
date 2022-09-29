@@ -27,22 +27,25 @@
 	        -dstVhost cluster2-broker
 ```
 
-* Move messages to queues with *arguements*:
+* Move messages to queues with *arguments* and using TLS:
 ```
 # ./amq_requeue -srcHost cluster1.example.com \
-                -srcPort 5672 \
+                -srcPort 5671 \
+                -srcTls \
 	        -srcUser username \
 	        -srcPass password \
 	        -srcQueue queue_one \
 	        -srcVhost cluster1-broker \
 	        -dstHost cluster2.example.com \
-	        -dstPort 5672 \
+	        -dstPort 5671 \
+                -dstTls \
 	        -dstUser username \
 	        -dstPass password \
 	        -dstQueue queue_two \
 	        -dstVhost cluster2-broker \
                 -sArgs 'x-message-ttl:3600000:int,x-ha-policy:ues-ha-all:string' \
-                -dArgs 'x-message-ttl:10800000:int,x-ha-policy:ues-ha-all:string'
+                -dArgs 'x-message-ttl:10800000:int,x-ha-policy:ues-ha-all:string' \
+		-verifyTls=true
 ```
 
 ### License

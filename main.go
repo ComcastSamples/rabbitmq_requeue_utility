@@ -1,16 +1,22 @@
 package main
 
 import (
+	"crypto/tls"
 	"flag"
 	"fmt"
 	"log"
+	"os"
 	"strconv"
 	"strings"
 
 	"github.com/streadway/amqp"
 )
 
-var debug bool = false
+var (
+	debug     bool   = false
+	sProtocol string = "amqp"
+	dProtocol string = "amqp"
+)
 
 func printDebug(string1, string2 string) {
 	if debug {
@@ -43,9 +49,23 @@ func main() {
 	dstPass := flag.String("dstPass", "", "Destination Password")
 	srcQueue := flag.String("srcQueue", "", "Source queue to copy messages from")
 	dstQueue := flag.String("dstQueue", "", "Destination queue to copy messages to")
+	srcTls := flag.Bool("srcTls", false, "Enable / Disable TLS")
+	dstTls := flag.Bool("dstTls", false, "Enable / Disable TLS")
 	sArgs := flag.String("sArgs", "", "Comma separated list of SRC queue args in form of 'key:value:type'. Example: 'x-message-ttl:3600000:int,x-ha-policy:all:string'")
 	dArgs := flag.String("dArgs", "", "Comma separated list of DST queue args in form of 'key:value:type'. Example: 'x-message-ttl:10800000:int,x-ha-policy:all:string'")
+	usage := flag.Bool("usage", false, "Display usage options with examples")
+	verifyTls := flag.Bool("verifyTls", true, "Verify TLS certificates for AMQP connection")
 	flag.Parse()
+
+	if *usage {
+		printUsage()
+		return
+	}
+
+	if len(os.Args) < 2 {
+		printUsage()
+		return
+	}
 
 	if *debugOption == true {
 		debug = true
@@ -81,10 +101,35 @@ func main() {
 	srcQueueArgs = parseArgs(*sArgs, "SRC")
 	dstQueueArgs = parseArgs(*dArgs, "DST")
 
+	if *srcTls == true {
+		sProtocol = "amqps"
+	}
+
+	if *dstTls == true {
+		dProtocol = "amqps"
+	}
+
+	fmt.Printf("TLS Verify: %s \n", blue(*verifyTls))
+	fmt.Printf("SRC TLS: %s \n", blue(*srcTls))
+	fmt.Printf("DST TLS: %s \n", blue(*dstTls))
+
+	cfg := tls.Config{
+		InsecureSkipVerify: *verifyTls,
+	}
+
 	// SRC Cluster Connection
-	srcConnString := fmt.Sprintf("amqp://%s:%s@%s:%s/%%2F%s", *srcUser, *srcPass, *srcHost, *srcPort, *srcVhost)
-	srcconn, err := amqp.Dial(srcConnString)
-	failOnError(err, "Failed to connect to source RabbitMQ")
+	var srcconn *amqp.Connection
+	var serr error
+
+	srcConnString := fmt.Sprintf("%s://%s:%s@%s:%s/%%2F%s", sProtocol, *srcUser, *srcPass, *srcHost, *srcPort, *srcVhost)
+
+	if *srcTls {
+		srcconn, serr = amqp.DialTLS(srcConnString, &cfg)
+	} else {
+		srcconn, serr = amqp.Dial(srcConnString)
+	}
+
+	failOnError(serr, "Failed to connect to source RabbitMQ ( If connecting to a TLS port, be sure to use the '-srcTls' option to enable TLS )")
 	defer srcconn.Close()
 
 	srcch, err := srcconn.Channel()
@@ -117,9 +162,18 @@ func main() {
 	failOnError(err, "Failed to register a Consumer on source cluster")
 
 	// DST Cluster Connection
-	dstConnString := fmt.Sprintf("amqp://%s:%s@%s:%s/%%2F%s", *dstUser, *dstPass, *dstHost, *dstPort, *dstVhost)
-	dstconn, err := amqp.Dial(dstConnString)
-	failOnError(err, "Failed to connect to destination RabbitMQ cluster")
+	var dstconn *amqp.Connection
+	var derr error
+
+	dstConnString := fmt.Sprintf("%s://%s:%s@%s:%s/%%2F%s", dProtocol, *dstUser, *dstPass, *dstHost, *dstPort, *dstVhost)
+
+	if *dstTls {
+		dstconn, derr = amqp.DialTLS(dstConnString, &cfg)
+	} else {
+		dstconn, derr = amqp.Dial(dstConnString)
+	}
+
+	failOnError(derr, "Failed to connect to destination RabbitMQ cluster ( If connecting to a TLS port, be sure to use the '-dstTls' option to enable TLS )")
 	defer dstconn.Close()
 
 	dstch, err := dstconn.Channel()
