@@ -27,7 +27,7 @@
 	        -dstVhost cluster2-broker
 ```
 
-* Move messages to queues with *arguements* and using TLS:
+* Move messages to queues with *arguments* and using TLS:
 ```
 # ./amq_requeue -srcHost cluster1.example.com \
                 -srcPort 5671 \
